@@ -2,26 +2,23 @@ import java.io.IOException;
 
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.lang.Thread.State;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Random;
 
-import messages.Message;
-import messages.GreetingMessage;
-import messages.Price;
-import messages.PurchaseRequests;
-import messages.StateMessage;
+import messages.*;
 
 public class DataServer {
     private static final int SPORT = 4444;
+    private static int sessionId;
 
     public static void main(String[] args) {
         try (ServerSocket server = new ServerSocket(SPORT)) {
             System.out.println("Server in ascolto sulla porta: " + SPORT);
             while (true) {
                 Socket clientSocket = server.accept();
-                new Thread(new ClientHandler(clientSocket)).start();
+                new Thread(new ClientHandler(clientSocket, sessionId)).start();
+                sessionId++;
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -29,13 +26,16 @@ public class DataServer {
     }
 }
 
+
 class ClientHandler implements Runnable {
     private ObjectOutputStream os;
     private ObjectInputStream is;
-    private Socket clientSocket;
+    private final Socket clientSocket;
+    private final int sessionId;
 
-    public ClientHandler(Socket clientSocket) {
+    public ClientHandler(Socket clientSocket, int sessionId) {
         this.clientSocket = clientSocket;
+        this.sessionId = sessionId;
     }
 
     public double generatePrice() {
@@ -45,15 +45,7 @@ class ClientHandler implements Runnable {
 
     public void checkPrice(double serverPrice, double clientPrice) {
         if (serverPrice <= clientPrice) {
-            try {
-                os.writeObject(new PurchaseRequests());
-                os.flush();
-                System.out.println(serverPrice);
-                System.out.println(clientPrice);
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            sendMessage(new PurchaseRequests());
         }
     }
 
@@ -64,32 +56,49 @@ class ClientHandler implements Runnable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
-
 
     @Override
     public void run() {
         try {
-            is = new ObjectInputStream(clientSocket.getInputStream()); // Ora dopo os
             os = new ObjectOutputStream(clientSocket.getOutputStream());
-            sendMessage(new GreetingMessage("Hello!"));
-            double price = generatePrice();
-            while (true) {
-
-                sendMessage(new Price(price));
-                Message message = (Message) is.readObject();
-                if (message instanceof Price) {
-                    checkPrice(price, ((Price) message).getPrice());
-                    // }
-                    System.out.println("Client price: " + ((Price) message).getPrice());
-                }
-                if (message instanceof StateMessage) {
-                    System.out.println("Server received: " + ((StateMessage) message).getMessage());
+            is = new ObjectInputStream(clientSocket.getInputStream());
+            GreetingMessage greetingMessage = new GreetingMessage("Hello");
+            greetingMessage.setSessionId(sessionId);
+            sendMessage(greetingMessage);
+            Message message = (Message) is.readObject();
+            if (message instanceof GreetingMessage) {
+                System.out.println("Connection established with client["+ sessionId +"]: " + ((GreetingMessage) message).getMessage());
+                boolean running = true;
+                double generatedPrice = generatePrice();
+                sendMessage(new Price(generatedPrice));
+                while (running) {
+                    message = (Message) is.readObject();
+                    switch (message) {
+                        case Price price -> checkPrice(generatedPrice, price.getPrice());
+                        case StateMessage stateMessage -> System.out.println("Server received: " + stateMessage.getMessage());
+                        case PurchaseCompleted purchaseCompleted -> {
+                            running = false;
+                        }
+                        case null, default -> System.out.println("Unknown message type received");
+                    }
+                    generatedPrice = generatePrice();
+                    sendMessage(new Price(generatedPrice));
                 }
             }
         } catch (Exception e) {
+            System.out.println("Errore");
             e.printStackTrace();
+
+        } finally {
+            try {
+                if (is != null) is.close();
+                if (os != null) os.close();
+                if (clientSocket != null && !clientSocket.isClosed()) clientSocket.close();
+            } catch (IOException e) {
+                System.out.println("Errore");
+                e.printStackTrace();
+            }
         }
     }
 

@@ -5,11 +5,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Random;
 
-import messages.GreetingMessage;
-import messages.Message;
-import messages.Price;
-import messages.PurchaseRequests;
-import messages.StateMessage;
+import messages.*;
 
 public class DataClient implements Runnable {
     private ObjectOutputStream os;
@@ -17,11 +13,20 @@ public class DataClient implements Runnable {
     private static final int SPORT = 4444;
     private static final String SHOST = "localhost";
     private int acquisti;
+    private int sessionId;
 
-    public void generatePrices() {
+    public double generatePrice() {
         Random random = new Random();
-        double price = Math.round(random.nextDouble(10, 75) * 100.0) / 100.0;
-        System.out.println(price);
+        return Math.round(random.nextDouble(10, 100) * 100.0) / 100.0;
+    }
+
+    public void sendMessage(Message message) {
+        try {
+            os.writeObject(message);
+            os.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -31,43 +36,54 @@ public class DataClient implements Runnable {
             os = new ObjectOutputStream(client.getOutputStream());
             is = new ObjectInputStream(client.getInputStream());
             try {
-                while (acquisti <= 10) {
+                while (acquisti < 3) {
                     Message message = (Message) is.readObject();
                     switch (message) {
                         case GreetingMessage greetingMessage -> {
-                            os.writeObject(new GreetingMessage("Hi!"));
-                            os.flush();
-                            System.out.println("Client received: " + greetingMessage.getMessage());
+                            sessionId = greetingMessage.getSessionId();
+                            sendMessage(new GreetingMessage("Hi!"));
+                            System.out.println("Connection established with the server: " + greetingMessage.getMessage());
                         }
                         case Price price -> {
-                            os.writeObject(new Price(60.0));
-                            os.flush();
-                            System.out.println(price.getPrice());
+                            double generatedPrice = generatePrice();
+                            sendMessage(new Price(generatedPrice));
+                            System.out.println("[ Server " + sessionId + " ] Price: " + price.getPrice());
+                            System.out.println("[ Client " + sessionId + " ] Price: " + generatedPrice);
                         }
                         case PurchaseRequests purchaseRequests -> {
-                            os.writeObject(new StateMessage("Acquisto completato!"));
+                            sendMessage(new StateMessage("Purchase completed!"));
                             acquisti++;
-                            // client.close();
+                            System.out.println("[ Client " + sessionId + " ] Purchases: " + acquisti);
                         }
                         case null, default -> System.out.println("Unknown message type received");
                     }
+
                 }
-                client.close();
-
-
+                sendMessage(new StateMessage("Il client ha terminato gli acquisti"));
+                sendMessage(new PurchaseCompleted());
 
             } catch (ClassNotFoundException e) {
                 e.printStackTrace();
+            } finally {
+                try {
+                    if (is != null) is.close();
+                    if (os != null) os.close();
+                    if (client != null && !client.isClosed()) client.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-            client.close();
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-
         }
     }
 
     public static void main(String[] args) {
         new Thread(new DataClient()).start();
+        new Thread(new DataClient()).start();
+        new Thread(new DataClient()).start();
+        new Thread(new DataClient()).start();
+
+
     }
 }
