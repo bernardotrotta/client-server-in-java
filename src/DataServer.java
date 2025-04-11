@@ -11,7 +11,7 @@ import messages.*;
 
 public class DataServer {
     private static final int SPORT = 4444;
-    private static final AtomicInteger sessionId = new AtomicInteger(1000);
+    private static final AtomicInteger sessionId = new AtomicInteger(1001);
     public static final int NTHREADS = 10;
     public static AtomicInteger clientsCompleted = new AtomicInteger(0);
     public static void main(String[] args) {
@@ -31,7 +31,6 @@ public class DataServer {
         }
     }
 }
-
 
 class ClientHandler implements Runnable {
     private ObjectOutputStream os;
@@ -67,7 +66,6 @@ class ClientHandler implements Runnable {
         }
     }
 
-
     @Override
     public void run() {
         try {
@@ -82,25 +80,16 @@ class ClientHandler implements Runnable {
             Message message = (Message) is.readObject();
             if (message instanceof GreetingMessage) {
                 System.out.println("Connection established with client["+ sessionId +"]: " + ((GreetingMessage) message).getMessage());
-
                 boolean running = true;
-
-                ExecutorService executor = Executors.newSingleThreadExecutor();
-                Callable<Double> generateNumberCallable = () -> {
-                    Thread.sleep(1000);
-                    Random random = new Random();
-                    return Math.round(random.nextDouble(10, 100) * 100.0) / 100.0;
-                };
-
-//                double serverPrice = 100;
-
                 while (running) {
                     double serverPrice = generatePrice();
                     sendMessage(new Price(serverPrice));
-                    // Future<Double> future = executor.submit(generateNumberCallable);
                     message = (Message) is.readObject();
                     switch (message) {
-                        case Price clientPrice -> checkPrice(serverPrice, clientPrice.getPrice());
+                        case Price clientPrice -> {
+                            checkPrice(serverPrice, clientPrice.getPrice());
+                            System.out.println("[ " + sessionId + " ] Server: $" + serverPrice + ", " + "Client: $" + clientPrice.getPrice() );
+                        }
                         case StateMessage stateMessage -> System.out.println("Server received: " + stateMessage.getMessage());
                         case PurchaseCompleted purchaseCompleted -> {
                             sendMessage(new GoodbyeMessage());
@@ -109,7 +98,6 @@ class ClientHandler implements Runnable {
                         }
                         case null, default -> System.out.println("Unknown message type");
                     }
-                    //                    serverPrice = future.get();
                 }
                 is.close();
                 os.close();

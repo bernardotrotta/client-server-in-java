@@ -48,11 +48,10 @@ public class DataClient implements Runnable {
                     switch (message) {
                         case Price price -> { double generatedPrice = generatePrice();
                             sendMessage(new Price(generatedPrice));
-                            System.out.println("[ Server " + sessionId + " ] Price: " + price.getPrice());
-                            System.out.println("[ Client " + sessionId + " ] Price: " + generatedPrice); }
+                            System.out.println("[ " + sessionId + " ] Server: $" + price.getPrice() + ", " + "Client: $" + generatedPrice); }
                         case PurchaseRequests purchaseRequest -> {
                             if (PURCHASESLIMIT - purchasesCounter == 1) {
-                                sendMessage(new PurchaseCompleted("Client has finished his purchases"));
+                                sendMessage(new PurchaseCompleted( "[ " + sessionId +" ] Client has finished his purchases!"));
                             }
                             else {
                                 sendMessage(new StateMessage("Purchase completed!"));
@@ -62,7 +61,6 @@ public class DataClient implements Runnable {
                         case null, default -> System.out.println("Unknown message type");
                     }
                 }
-
 
                 message = (Message) is.readObject();
                 if (message instanceof GoodbyeMessage) {
@@ -78,14 +76,11 @@ public class DataClient implements Runnable {
         }
     }
 
-
     public static void main(String[] args) {
         new Thread(new DataClient()).start();
         new Thread(new DataClient()).start();
         new Thread(new DataClient()).start();
         new Thread(new DataClient()).start();
         new Thread(new DataClient()).start();
-
-
     }
 }
