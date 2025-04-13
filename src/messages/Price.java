@@ -11,7 +11,8 @@ public class Price implements Message {
         this.price = price;
     }
 
-    public double getPrice() {
+    @Override
+    public Double get() {
         return price;
     }
 }

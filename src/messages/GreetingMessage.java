@@ -2,22 +2,20 @@ package messages;
 
 import java.io.Serial;
 
-public class GreetingMessage implements Message {
+public class GreetingMessage implements Message<String> {
     @Serial
     private static final long serialVersionUID = 1L;
     private final String message;
-    private int sessionId;
+    private final int sessionId;
 
-    public GreetingMessage(String message) {
+    public GreetingMessage(String message, int sessionId) {
         this.message = message;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setSessionId(int sessionId) {
         this.sessionId = sessionId;
+    }
+
+    @Override
+    public String get() {
+        return message;
     }
 
     public int getSessionId() {

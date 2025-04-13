@@ -1,8 +1,0 @@
-package messages;
-
-import java.io.Serial;
-
-public class AskPrice implements Message {
-    @Serial
-    private static final long serialVersionUID = 1L;
-}

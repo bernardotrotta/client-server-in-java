@@ -2,7 +2,12 @@ package messages;
 
 import java.io.Serial;
 
-public class GoodbyeMessage implements Message {
+public class GoodbyeMessage implements Message<Void> {
     @Serial
     private static final long serialVersionUID = 1L;
+
+    @Override
+    public Void get() {
+        return null;
+    }
 }
